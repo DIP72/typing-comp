@@ -482,6 +482,48 @@ Fetch competition details.
 }
 ```
 
+### GET /api/compition/:compitionid
+
+Fetch competition details by competition ID.
+
+**Response:**
+```json
+{
+  "compid": {
+    "_id": "507f1f77bcf86cd799439011",
+    "name": "TechFest 2025",
+    "code": "AB12C",
+    "status": "ongoing",
+    "rounds": [...],
+    "participants": [...],
+    "currentRound": 1,
+    "totalRounds": 3,
+    "roundsCompleted": 0,
+    "finalRankings": []
+  }
+}
+```
+
+## 🌐 Frontend Routes
+
+The application has two main frontend interfaces:
+
+### Participant Routes
+
+| Route | Description |
+|-------|-------------|
+| `/` | Main participant interface (default) - Join competition, take typing tests |
+| `/participant/index.html` | Participant dashboard (alternative path) |
+
+### Organizer Routes
+
+| Route | Description |
+|-------|-------------|
+| `/organizer` | Organizer dashboard - Create competitions, manage rounds, view leaderboard |
+| `/organizer/index.html` | Organizer interface (alternative path) |
+
+**Note:** The default route (`/`) serves the participant interface. Organizers should navigate to `/organizer` to access competition management features.
+
 ## 🐛 Troubleshooting
 
 | Issue | Solution |
