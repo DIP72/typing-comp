@@ -1,85 +1,52 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const { body, validationResult } = require('express-validator');
 const Organizer = require('../models/Organizer');
 const auth = require('../middleware/auth');
 const logger = require('../config/logger');
 
 const router = express.Router();
 
-/**
- * @swagger
- * components:
- *   schemas:
- *     Organizer:
- *       type: object
- *       properties:
- *         id:
- *           type: string
- *           description: Organizer's unique ID
- *         name:
- *           type: string
- *           description: Organizer's name
- *         email:
- *           type: string
- *           format: email
- *           description: Organizer's email address
- *         createdAt:
- *           type: string
- *           format: date-time
- *           description: Account creation timestamp
- *         lastLogin:
- *           type: string
- *           format: date-time
- *           description: Last login timestamp
- *     RegisterRequest:
- *       type: object
- *       required:
- *         - name
- *         - email
- *         - password
- *       properties:
- *         name:
- *           type: string
- *           description: Organizer's full name
- *         email:
- *           type: string
- *           format: email
- *           description: Email address for registration
- *         password:
- *           type: string
- *           minLength: 6
- *           description: Password (minimum 6 characters)
- *     LoginRequest:
- *       type: object
- *       required:
- *         - email
- *         - password
- *       properties:
- *         email:
- *           type: string
- *           format: email
- *           description: Registered email address
- *         password:
- *           type: string
- *           description: Account password
- *     AuthResponse:
- *       type: object
- *       properties:
- *         success:
- *           type: boolean
- *           description: Operation success status
- *         token:
- *           type: string
- *           description: JWT authentication token
- *         organizer:
- *           $ref: '#/components/schemas/Organizer'
- *     ErrorResponse:
- *       type: object
- *       properties:
- *         error:
- *           type: string
- *           description: Error message
- */
+// Input validation middleware
+const validateRegistration = [
+  body('name')
+    .trim()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Name must be between 2 and 50 characters')
+    .matches(/^[a-zA-Z\s]+$/)
+    .withMessage('Name can only contain letters and spaces'),
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Please provide a valid email address'),
+  body('password')
+    .isLength({ min: 6, max: 100 })
+    .withMessage('Password must be between 6 and 100 characters')
+    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+    .withMessage('Password must contain at least one lowercase letter, one uppercase letter, and one number')
+];
+
+const validateLogin = [
+  body('email')
+    .isEmail()
+    .normalizeEmail()
+    .withMessage('Please provide a valid email address'),
+  body('password')
+    .notEmpty()
+    .withMessage('Password is required')
+];
+
+// Handle validation errors
+const handleValidationErrors = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      error: 'Validation failed',
+      details: errors.array()
+    });
+  }
+  next();
+};
 
 // Generate JWT token
 const generateToken = (id) => {
@@ -90,56 +57,12 @@ const generateToken = (id) => {
   );
 };
 
-/**
- * @swagger
- * /api/auth/register:
- *   post:
- *     summary: Register a new organizer account
- *     tags: [Authentication]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/RegisterRequest'
- *     responses:
- *       201:
- *         description: Organizer registered successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/AuthResponse'
- *       400:
- *         description: Validation error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- */
-router.post('/register', async (req, res) => {
+// REGISTER - Create new organizer account
+router.post('/register', validateRegistration, handleValidationErrors, async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // Validation
-    if (!name || !email || !password) {
-      return res.status(400).json({ 
-        error: 'Name, email, and password are required' 
-      });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({ 
-        error: 'Password must be at least 6 characters' 
-      });
-    }
-
-    // Check if organizer exists
+    // Additional server-side validation (already sanitized by express-validator)
     const existingOrganizer = await Organizer.findOne({ email: email.toLowerCase() });
     if (existingOrganizer) {
       return res.status(400).json({ 
@@ -149,7 +72,7 @@ router.post('/register', async (req, res) => {
 
     // Create organizer
     const organizer = new Organizer({
-      name,
+      name: name.trim(),
       email: email.toLowerCase(),
       password
     });
@@ -178,54 +101,10 @@ router.post('/register', async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * /api/auth/login:
- *   post:
- *     summary: Authenticate organizer and get JWT token
- *     tags: [Authentication]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/LoginRequest'
- *     responses:
- *       200:
- *         description: Login successful
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/AuthResponse'
- *       400:
- *         description: Validation error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *       401:
- *         description: Invalid credentials
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- */
-router.post('/login', async (req, res) => {
+// LOGIN - Authenticate organizer
+router.post('/login', validateLogin, handleValidationErrors, async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    // Validation
-    if (!email || !password) {
-      return res.status(400).json({ 
-        error: 'Email and password are required' 
-      });
-    }
 
     // Find organizer (include password for comparison)
     const organizer = await Organizer.findOne({ 
