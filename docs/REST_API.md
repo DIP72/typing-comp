@@ -58,6 +58,10 @@ curl -X POST http://localhost:3000/api/auth/register \
 - `400` - Email already registered
 - `500` - Registration failed
 
+**Validation Rules:**
+- Name: Required, string
+- Email: Required, valid email format, must be unique
+- Password: Required, minimum 12 characters with uppercase, lowercase, number, and special character (@$!%*?&)
 ---
 
 ### POST /api/auth/login
