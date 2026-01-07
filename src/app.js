@@ -5,8 +5,10 @@ const dotenv = require('dotenv');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const compression = require('compression');
+const mongoSanitize = require('express-mongo-sanitize');
 const logger = require('./config/logger');
 const requestLogger = require('./middleware/requestLogger');
+
 
 dotenv.config();
 
